@@ -1,0 +1,64 @@
+First noticed recently in  Phpkit 1.6.4pl1 BUT i think this 'contentid' parameter is being used elsewhere in the various content scripts making it still vulnerable elsewhere (outside of the many openly published ones already). I have found this vuln in many sites already showing that despite this being 7yrs old in nature the CMS still is on the net with plenty of vulnerable servers out there :o There latest version 1.6.6 appears to have all these problems fixed, although its still not perfect ;)
+
+Closest Write-Up to describe this problem: http://packetstormsecurity.org/files/61210/phpkit-sql.txt.html
+
+In some cases a UNION injection is possible, however I found a Error based injection to be a more universal approach as it also bypassing the skSecurityModule which was first introduced to patch several of the reported vulnerabilities in the CMS. The problem is in the first version which was released as patch the logging mechanism was unsantized causing an Error based injection to still success, however it was now being used in the pkSecurityModule itself, not the original content/whatever.php script injected in (i.e. a secondary injection). 
+
+pkSecurityModule logging query:
+INSERT INTO phpkit_sm_connection (con_time, con_ip, con_url) VALUES ('<TIME>', 'xxx.xxx.xxx.xxx', 'path=<script>&contentid=<value><SQLiinject>') 
+:p
+
+Version 2 and 3 of this security module address the issue and stop the SQL injection properly. This module is also often referred to as Hack Block...
+
+The Default 'phpkit_user' Table layout looks like this:
+	+-----------------+------------------+
+	| Column          | Type             |
+	+-----------------+------------------+
+	| lastlog         | int(14) unsigned |
+	| logtime         | int(14) unsigned |
+	| signin          | int(14) unsigned |
+	| uid             | varchar(32)      |
+	| user_activate   | tinyint(1)       |
+	| user_aimid      | varchar(30)      |
+	| user_avatar     | varchar(60)      |
+	| user_bd_day     | tinyint(2)       |
+	| user_bd_month   | tinyint(2)       |
+	| user_bd_year    | smallint(4)      |
+	| user_country    | char(3)          |
+	| user_design     | int(14)          |
+	| user_email      | varchar(250)     |
+	| user_emailshow  | tinyint(1)       |
+	| user_gbwelcome  | text             |
+	| user_ghost      | tinyint(1)       |
+	| user_groupid    | tinyint(3)       |
+	| user_hobby      | text             |
+	| user_hpage      | varchar(75)      |
+	| user_icqid      | int(12) unsigned |
+	| user_id         | int(14) unsigned |
+	| user_imnotify   | tinyint(1)       |
+	| user_imoption   | tinyint(1)       |
+	| user_name       | varchar(50)      |
+	| user_nick       | varchar(50)      |
+	| user_nloption   | tinyint(1)       |
+	| user_postdelay  | int(6)           |
+	| user_posts      | int(6)           |
+	| user_profillock | tinyint(1)       |
+	| user_pw         | varchar(50)      |
+	| user_qou        | text             |
+	| user_sex        | char(1)          |
+	| user_sig        | text             |
+	| user_sigoption  | tinyint(1)       |
+	| user_status     | varchar(10)      |
+	| user_yim        | varchar(50)      |
+	+-----------------+------------------+
+
+Key Items to grab with SQLi to comprimise user or admin account: 
+	SELECT uid,user_name,user_pw FROM phpkit_user;
+
+TYPICAL LOGIN: http://www.site.de/<phpkit>/admin/admin.php (just /admin will redirect to the right page in most cases)
+	NOTE: you need to make sure the 'PHPKITSID' value is properly set to that of the 'uid' value, in addition to correct username and password
+		In some isntances its passed in URL visible, others you might need a cookie editor to set the value
+
+ALSO Note that the default database prefix was set to 'phpkit_' so if this is changed it might affect things a bit. In the newer version it is set to 'pk_'.
+
+Script just exploits the SQL injection where possible to grab all the user_name, user_pw, and uid values. It is also dumped to a results file for safe keeping or in case you didnt catch everything in the terminal. 
